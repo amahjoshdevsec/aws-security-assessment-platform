@@ -1,0 +1,17 @@
+# Credentials, local infrastructure state, reports and tools
+.env
+.env.*
+*.bak
+*.tfstate*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+.terraform/
+.venv/
+__pycache__/
+*.pyc
+reports/
+build/
+_data/
+docker-compose.yml
+.DS_Store

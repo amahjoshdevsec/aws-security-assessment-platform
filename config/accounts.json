@@ -1,0 +1,17 @@
+{
+  "accounts": [
+    {
+      "id": "111111111111",
+      "name": "workload-example",
+      "owner": "cloud-platform",
+      "environment": "production",
+      "role_name": "ProwlerAudit",
+      "external_id": "replace-with-your-organization-scan-id",
+      "regions": [
+        "us-east-1",
+        "us-west-2"
+      ],
+      "enabled": false
+    }
+  ]
+}

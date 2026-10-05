@@ -1,3 +1,5 @@
+> Historical local-server lab documentation. See [scope and caveats](../README.md); use the [enterprise README](../../../README.md) for the current platform.
+
 # Mutelist: recording accepted findings
 
 [`config/mutelist.yaml`](../config/mutelist.yaml) is the list of findings this account has looked at and deliberately accepted, each with the reason and the condition that should make someone revisit it.

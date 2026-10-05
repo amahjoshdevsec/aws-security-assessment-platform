@@ -1,3 +1,5 @@
+> Historical local-server lab documentation. See [scope and caveats](../README.md); use the [enterprise README](../../../README.md) for the current platform.
+
 # Continuous integration
 
 Three workflows in [`.github/workflows/`](../.github/workflows), plus Dependabot.

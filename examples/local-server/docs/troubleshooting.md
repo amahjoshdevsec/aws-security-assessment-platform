@@ -1,3 +1,5 @@
+> Historical local-server lab documentation. See [scope and caveats](../README.md); use the [enterprise README](../../../README.md) for the current platform.
+
 # Troubleshooting
 
 Start with `make preflight` — it catches most setup problems before they become container failures.

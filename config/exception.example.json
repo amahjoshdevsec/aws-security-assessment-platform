@@ -1,0 +1,18 @@
+{
+  "exceptions": [
+    {
+      "id": "EX-001",
+      "account_id": "111111111111",
+      "check_id": "s3_bucket_public_access",
+      "region": "us-east-1",
+      "resource": "arn:aws:s3:::example-public-site",
+      "owner": "website-team",
+      "approved_by": "security-risk-owner",
+      "ticket": "https://example.com/risk/EX-001",
+      "reason": "Intentionally public static website; no confidential data.",
+      "compensating_control": "Origin contains public build assets only; deployment reviews enforce content scope.",
+      "approved_on": "2026-10-01",
+      "expires_on": "2026-10-31"
+    }
+  ]
+}

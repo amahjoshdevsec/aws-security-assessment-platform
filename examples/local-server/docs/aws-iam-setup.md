@@ -1,3 +1,5 @@
+> Historical local-server lab documentation. See [scope and caveats](../README.md); use the [enterprise README](../../../README.md) for the current platform.
+
 # Creating read-only AWS credentials for Prowler
 
 Prowler needs credentials that can *describe* and *list* resources across your account. It never needs write access.

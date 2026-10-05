@@ -1,147 +1,61 @@
-# Terraform: provisioning the AWS side
+# Terraform deployment and state
 
-[`terraform/`](../terraform) creates the read-only IAM identity Prowler scans with — the same thing [aws-iam-setup.md](aws-iam-setup.md) walks through by hand in the console, but reproducible and destroyable in one command.
+Two independent roots are intentional: tooling infrastructure is deployed once and the member role is deployed once per approved account. Terraform providers cannot dynamically iterate across arbitrary accounts; use your provisioning pipeline to invoke the member root with separate credentials and state per account. Scanner credentials cannot provision infrastructure.
 
-Click-ops is fine for a first run. Terraform earns its place the second time: it gets the `ViewOnlyAccess` job-function path right, attaches the supplementary policy most people skip, and — most importantly — makes cleanup a single command instead of a checklist you might forget.
+## Bootstrap and remote state
 
-**Requires:** Terraform ≥ 1.5, and AWS credentials in your shell with permission to create IAM users/roles (your normal admin identity, not the scanner's).
+Use an administrator-approved SSO/provisioning role. Create or select an independently secured state backend before production: encrypted S3, versioning, public access blocked, a state-access role, and a concurrency lock appropriate to your installed Terraform version. Terraform 1.7 deployments can use an existing DynamoDB lock table. Do not use the report bucket as the bootstrap state bucket. Never put credentials in backend files or `tfvars`.
 
----
-
-## Which auth method
-
-| | `credentials` (default) | `role` |
-| --- | --- | --- |
-| Creates | IAM user + access key | IAM role |
-| Prowler UI setting | Credentials | Assumed Role |
-| Long-lived secret | Yes | No |
-| Secret in Terraform state | **Yes, plaintext** | No |
-| Matches the walkthrough | Yes | No |
-| Good for | Learning, one-off scans | Anything ongoing |
-
-Start with `credentials` if you're following the walkthrough. Move to `role` once it works — that's the whole point of the "where to go next" section in [README.md](../README.md).
-
-## Quick start
+For example, add an empty `backend "s3" {}` inside the root's `terraform` block and initialize with your real state configuration:
 
 ```bash
-cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-$EDITOR terraform/terraform.tfvars
-
-make tf-init
-make tf-plan          # read this before applying
-make tf-apply
-make tf-creds         # account ID + key ID
-make -s tf-secret     # the secret, on its own
+terraform -chdir=terraform/security-tooling init \
+  -backend-config="bucket=YOUR_STATE_BUCKET" \
+  -backend-config="key=prowler/tooling/terraform.tfstate" \
+  -backend-config="region=us-east-1" \
+  -backend-config="encrypt=true" \
+  -backend-config="dynamodb_table=YOUR_LOCK_TABLE"
 ```
 
-Then paste the values into the Prowler UI as described in [README.md](../README.md#step-5--connect-aws-in-the-ui).
+Use `prowler/member/ACCOUNT_ID/terraform.tfstate` for each member. Use separate working copies or `TF_DATA_DIR` per member to avoid accidentally reusing cached backend configuration. Backend support changes with Terraform releases; follow the [S3 backend documentation](https://developer.hashicorp.com/terraform/language/backend/s3) for upgrades.
 
-When you're finished scanning:
+The checked-in roots omit a backend so credential-free validation works without organization infrastructure. Their local default is for evaluation only. State, plans, local variables and credentials are gitignored.
+
+## Deploy tooling first
 
 ```bash
-make tf-destroy
+cp terraform/security-tooling/terraform.tfvars.example terraform/security-tooling/terraform.tfvars
+# Edit account ID, member allowlist, external ID, region and unique report bucket name.
+# Authenticate to the tooling account with your provisioning identity.
+terraform -chdir=terraform/security-tooling init
+terraform -chdir=terraform/security-tooling plan -out=tooling.tfplan
+terraform -chdir=terraform/security-tooling apply tooling.tfplan
+terraform -chdir=terraform/security-tooling output
 ```
 
-That deletes the access key and the user — the cleanup step people forget.
+The provider's `allowed_account_ids` guard rejects credentials for the wrong account. If a GitHub OIDC provider already exists, set `existing_oidc_provider_arn`; do not attempt to create a duplicate provider. Check its URL and audience. Protect the GitHub environment before enabling the runner role's use.
 
-## The state file holds your secret
+The tooling root creates an OIDC provider when needed, a runner role and policy, KMS key/alias, private S3 bucket with enforced encryption, versioning and lifecycle, and optional reader policies on existing same-account roles. Evidence retention defaults to 365 days; prior lifecycle-state versions use the same retention. The current state remains until explicitly retired. Actual physical deletion of versioned reports can lag logical expiration because noncurrent versions have their own retention period.
 
-⚠️ With `auth_method = "credentials"`, Terraform stores the secret access key in `terraform.tfstate` **in plaintext**. This is inherent to `aws_iam_access_key`, not something this configuration chose; marking the output `sensitive` hides it from console output but changes nothing about the file on disk.
-
-So:
-
-- `*.tfstate*` and `terraform.tfvars` are gitignored. Do not force-add them.
-- Treat `terraform.tfstate` as a credential. If you'd shred a printout of the key, shred the state too.
-- Don't put this state in a shared S3 backend without encryption and tight bucket policy — you'd be publishing a key that can read your whole account.
-
-Two ways to avoid the problem entirely:
-
-**Create the user without a key**, then make the key by hand in the console:
-
-```hcl
-create_access_key = false
-```
-
-**Or use role assumption**, where no long-lived secret exists to leak:
-
-```hcl
-auth_method            = "role"
-trusted_principal_arns = ["arn:aws:iam::123456789012:user/you"]
-external_id            = "…"   # openssl rand -hex 16
-```
-
-## What gets created
-
-Both modes attach the same three policies:
-
-| Policy | Source | Why |
-| --- | --- | --- |
-| `SecurityAudit` | AWS managed | Read access to security configuration |
-| `ViewOnlyAccess` | AWS managed (`job-function/` path) | Broad list/describe coverage |
-| `<name>-additions` | This repo | Permissions a few checks need that the first two don't grant |
-
-The additions policy is vendored at [`terraform/policies/prowler-additions-policy.json`](../terraform/policies/prowler-additions-policy.json), copied verbatim from `permissions/prowler-additions-policy.json` at the pinned release (5.38.0). **Re-fetch it after `make upgrade`** — the action list grows as checks are added:
+## Deploy each member
 
 ```bash
-V=$(cat .prowler-version)
-curl -sfL "https://raw.githubusercontent.com/prowler-cloud/prowler/refs/tags/$V/permissions/prowler-additions-policy.json" \
-  -o terraform/policies/prowler-additions-policy.json
-make tf-plan
+cp terraform/member-account/terraform.tfvars.example terraform/member-account/terraform.tfvars
+# Authenticate to the selected member account. Edit its account_id and tooling_role_arn.
+terraform -chdir=terraform/member-account init
+terraform -chdir=terraform/member-account plan -out=member.tfplan
+terraform -chdir=terraform/member-account apply member.tfplan
+terraform -chdir=terraform/member-account output audit_role_arn
 ```
 
-Set `attach_additions_policy = false` to skip it. Those checks then report as errors rather than pass/fail — a coverage gap, not a security gap. See [learn.md](learn.md#reading-your-first-scan-without-panicking).
+Use the same external ID in tooling, member trust and inventory. The member role path is `/security/`; keep inventory `role_name` consistent. The member trust names the exact tooling role, so tooling must exist before member apply. IAM propagation can delay the first scan. If the tooling role is deleted and recreated, reapply member trust policies because AWS binds role principals to unique principal IDs.
 
-## Notable choices
+## Policy maintenance
 
-**Everything is read-only.** No statement in any attached policy grants a write action. The optional `permissions_boundary` variable lets you enforce that structurally, so the identity can't gain write access even if someone attaches a broader policy later.
+[prowler-read-additions.json](../terraform/policies/prowler-read-additions.json) preserves the original 5.38.0 additional permissions except `securityhub:BatchImportFindings`, which is intentionally excluded. It is not a generic least-privilege policy for every organization. Compare it with [the pinned upstream policy](https://github.com/prowler-cloud/prowler/blob/5.38.0/permissions/prowler-additions-policy.json) during scanner upgrades, review every permission, and validate denied-check coverage in a canary account. Never grant AdministratorAccess to clear errors.
 
-**`force_destroy = false` on the user.** If someone attaches extra policies or a second access key out of band, `terraform destroy` fails rather than silently discarding access paths Terraform didn't create. You'll have to look at what's there, which is the correct outcome.
+## Destruction and migration
 
-**Partition-aware policy ARNs.** Built from `data.aws_partition.current` rather than hardcoding `arn:aws:`, so the managed-policy ARNs resolve in GovCloud and China too.
+The report bucket and KMS key use `prevent_destroy`; the bucket also has `force_destroy = false`. Decommission scanning and member trust first, then retain/archive evidence and state according to policy. Removing destruction guards or scheduling key deletion requires a separately reviewed change. A deleted key makes retained encrypted evidence unreadable.
 
-**A precondition on the role.** Role mode with an empty `trusted_principal_arns` renders a trust policy of `"Principal": {"AWS": []}` — which Terraform builds without complaint and AWS rejects at apply time with an opaque `MalformedPolicyDocument`. I verified that behavior directly. The precondition turns it into a clear plan-time message instead.
-
-**`path = "/security/"`.** Groups these identities under a distinct IAM path so they're easy to find and easy to scope a boundary or SCP to later. It does not affect permissions.
-
-**`region` only picks the API endpoint.** IAM is global. It does not limit what Prowler scans — a scan covers all regions regardless.
-
-## Layout
-
-```
-terraform/
-├── versions.tf                 provider + version constraints
-├── variables.tf                all inputs, with validation
-├── main.tf                     locals, data sources, additions policy
-├── iam_user.tf                 auth_method = "credentials"
-├── iam_role.tf                 auth_method = "role"
-├── outputs.tf                  values for the Prowler UI
-├── policies/                   vendored upstream policy JSON
-├── terraform.tfvars.example    copy to terraform.tfvars
-└── .terraform.lock.hcl         committed — pins provider versions
-```
-
-## Cleanup, in order
-
-1. `make tf-destroy` — removes the IAM user, its access key, and the policies.
-2. `make purge` — removes Prowler's stored (now-dead) encrypted copy of the key.
-3. Delete `terraform/terraform.tfstate*` if you used `credentials` mode, since the secret is in it.
-
-Step 1 alone is enough to revoke access. Steps 2 and 3 are about not leaving copies of a dead secret lying around. Tracked as [SEC-3](issue.md#sec-3--deleting-the-aws-key-doesnt-remove-it-from-prowler--open).
-
-## Verification status
-
-`terraform fmt`, `terraform init` and `terraform validate` pass. Both modes have been planned against a live account:
-
-| Check | Result |
-| --- | --- |
-| `credentials` mode plan | 6 to add — user, access key, additions policy, 3 attachments |
-| `role` mode plan (valid principal) | 5 to add, `sts:ExternalId` condition rendered correctly |
-| `role` mode with empty `trusted_principal_arns` | Precondition fires at plan time with the intended message |
-| Both AWS-managed policy ARNs resolve | Yes, including the `job-function/` path |
-| `terraform apply` (credentials mode) | 6 added, 0 changed, 0 destroyed |
-| Created user matches intent | Path `/security/`, 3 policies attached, 1 active key, **no** login profile |
-| New key authenticates | `sts:GetCallerIdentity` returns the `prowler-scan` ARN |
-| New key can read | `s3api list-buckets` succeeds |
-| New key **cannot** write | `iam:CreateUser` returns `AccessDenied` — as it must |
-
-Everything in this configuration has now been exercised against a live account.
+Do not move the legacy Terraform state into these roots: resource addresses and lifecycle differ. Follow [migration](migration.md), provision roles independently, verify new scans, then revoke the old IAM access keys. No infrastructure is deployed automatically by the validation workflow.

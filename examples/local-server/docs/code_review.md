@@ -1,3 +1,5 @@
+> Historical local-server lab documentation. See [scope and caveats](../README.md); use the [enterprise README](../../../README.md) for the current platform.
+
 # Code review
 
 Review of the tooling in this repo — the `Makefile`, the four scripts in [`scripts/`](../scripts), and the Terraform in [`terraform/`](../terraform). Findings that became tracked items are cross-referenced to [issue.md](issue.md).

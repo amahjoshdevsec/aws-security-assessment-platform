@@ -1,3 +1,5 @@
+> Historical local-server lab documentation. See [scope and caveats](../README.md); use the [enterprise README](../../../README.md) for the current platform.
+
 # Learn: the concepts behind this project
 
 [README.md](../README.md) tells you which commands to run. This file explains what you're actually doing and why, so the scan results mean something when they arrive.

@@ -1,3 +1,5 @@
+> Historical local-server lab documentation. See [scope and caveats](../README.md); use the [enterprise README](../../../README.md) for the current platform.
+
 # Issue log
 
 Known problems and deviations, tracked. [troubleshooting.md](troubleshooting.md) tells you how to *fix* things that go wrong on your machine; this file records what is *known to be wrong or divergent* in the project itself.

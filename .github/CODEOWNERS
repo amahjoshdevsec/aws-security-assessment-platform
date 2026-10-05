@@ -1,0 +1,6 @@
+# Replace/add your actual security and platform teams before enforcing review.
+* @amahjoshdevsec
+/config/ @amahjoshdevsec
+/terraform/ @amahjoshdevsec
+/.github/ @amahjoshdevsec
+/scripts/ @amahjoshdevsec
