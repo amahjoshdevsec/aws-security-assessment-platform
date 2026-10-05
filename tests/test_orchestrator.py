@@ -1,4 +1,5 @@
 """Exercise scan publication ordering with mocked Docker/AWS, never real credentials."""
+import datetime as dt
 import csv
 import json
 import os
@@ -33,9 +34,22 @@ class OrchestratorTests(unittest.TestCase):
                     if mode == 'state_denied':
                         raise subprocess.CalledProcessError(1, command)
                     return subprocess.CompletedProcess(command, 0, '{"Contents": []}', '')
+                if command[:3] == ['aws', 'sts', 'assume-role']:
+                    self.assertNotIn('env', kwargs)  # Tooling session remains on the host.
+                    expiry = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=1)).isoformat()
+                    response = {'Credentials': {'AccessKeyId': 'MEMBER-KEY', 'SecretAccessKey': 'MEMBER-SECRET', 'SessionToken': 'MEMBER-TOKEN', 'Expiration': expiry},
+                                'AssumedRoleUser': {'Arn': 'arn:aws:sts::111111111111:assumed-role/ProwlerAudit/prowler-run-1'}}
+                    return subprocess.CompletedProcess(command, 0, json.dumps(response), '')
+                if command[:3] == ['aws', 'sts', 'get-caller-identity']:
+                    self.assertEqual(kwargs['env']['AWS_ACCESS_KEY_ID'], 'MEMBER-KEY')
+                    identity = {'Account': '111111111111', 'Arn': 'arn:aws:sts::111111111111:assumed-role/ProwlerAudit/prowler-run-1'}
+                    return subprocess.CompletedProcess(command, 0, json.dumps(identity), '')
                 if '--version' in command:
                     return subprocess.CompletedProcess(command, 0, 'Prowler 5.38.0', '')
-                if command[:3] == ['docker', 'run', '--rm'] and '--role' in command:
+                if command[:3] == ['docker', 'run', '--rm'] and '--filter-region' in command:
+                    self.assertEqual(kwargs['env']['AWS_ACCESS_KEY_ID'], 'MEMBER-KEY')
+                    self.assertNotIn('--role', command)
+                    self.assertNotIn('ACTIONS_ID_TOKEN_REQUEST_TOKEN', kwargs['env'])
                     if mode == 'timeout':
                         raise subprocess.TimeoutExpired(command, 2400)
                     (output / 'errors.log').write_text('AccessDenied' if mode == 'scan_error' else '')
@@ -49,12 +63,15 @@ class OrchestratorTests(unittest.TestCase):
                         w.writeheader()
                         w.writerow(row)
                     return subprocess.CompletedProcess(command, 3, '', '')
+                if command[:3] == ['aws', 's3', 'cp']:
+                    self.assertNotIn('env', kwargs)
+                    self.assertEqual(os.environ['AWS_ACCESS_KEY_ID'], 'TOOLING-KEY')
                 if command[:3] == ['aws', 's3', 'cp'] and mode == 'upload_error':
                     raise subprocess.CalledProcessError(1, command)
                 return subprocess.CompletedProcess(command, 0, '', '')
 
             env = {'REPORT_BUCKET': 'test-reports', 'REPORT_KMS_KEY_ARN': 'arn:aws:kms:us-east-1:222222222222:key/test-key',
-                   'AWS_ACCESS_KEY_ID': 'test', 'AWS_SECRET_ACCESS_KEY': 'test', 'AWS_SESSION_TOKEN': 'test'}
+                   'AWS_ACCESS_KEY_ID': 'TOOLING-KEY', 'AWS_SECRET_ACCESS_KEY': 'TOOLING-SECRET', 'AWS_SESSION_TOKEN': 'TOOLING-TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN': 'OIDC-SECRET'}
             with patch('scan.ROOT', root), patch('scan.inventory', return_value=accounts), patch('scan.subprocess.run', side_effect=external), patch.dict(os.environ, env), patch.object(sys, 'argv', ['scan.py', '--account', '111111111111', '--region', 'us-east-1', '--run-id', 'run-1']):
                 if mode == 'success':
                     scan.main()

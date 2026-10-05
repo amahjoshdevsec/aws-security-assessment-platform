@@ -1,7 +1,11 @@
 account_id = "222222222222"
 region = "us-east-1"
-member_account_ids = ["111111111111"]
-external_id = "replace-with-your-organization-scan-id"
+member_accounts = {
+  "111111111111" = {
+    role_name   = "ProwlerAudit"
+    external_id = "replace-with-this-account-scan-id"
+  }
+}
 report_bucket_name = "replace-with-globally-unique-security-reports"
 # existing_oidc_provider_arn = "arn:aws:iam::222222222222:oidc-provider/token.actions.githubusercontent.com"
 # reader_role_arns = ["arn:aws:iam::222222222222:role/SecurityAnalyst"]

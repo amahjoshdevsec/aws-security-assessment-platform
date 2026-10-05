@@ -1,6 +1,6 @@
 variable "github_repository" {
   type    = string
-  default = "amahjoshdevsec/prowler-docker-walkthrough"
+  default = "amahjoshdevsec/aws-security-assessment-platform"
   validation {
     condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_repository))
     error_message = "Use an exact owner/repository."
@@ -19,27 +19,21 @@ variable "existing_oidc_provider_arn" {
   default     = null
   description = "Reuse the account's GitHub OIDC provider, if already provisioned."
 }
-variable "member_account_ids" {
-  type = set(string)
+variable "member_accounts" {
+  type = map(object({
+    role_name   = string
+    external_id = string
+  }))
+  description = "Approved account IDs and their exact audit role/external ID pairs; match inventory."
   validation {
-    condition     = length(var.member_account_ids) > 0 && alltrue([for id in var.member_account_ids : can(regex("^[0-9]{12}$", id))])
-    error_message = "Supply at least one exact member account ID."
-  }
-}
-variable "audit_role_name" {
-  type    = string
-  default = "ProwlerAudit"
-  validation {
-    condition     = can(regex("^[A-Za-z0-9+=,.@_-]{1,64}$", var.audit_role_name))
-    error_message = "Use a valid IAM role name."
-  }
-}
-variable "external_id" {
-  type        = string
-  description = "Organization scan identifier; match member trust and inventory. Not a password."
-  validation {
-    condition     = length(var.external_id) >= 2 && length(var.external_id) <= 1224 && can(regex("^[A-Za-z0-9+=,.@:/_-]+$", var.external_id))
-    error_message = "Supply a valid, nonempty STS external ID."
+    condition = length(var.member_accounts) > 0 && alltrue([
+      for id, member in var.member_accounts :
+      can(regex("^[0-9]{12}$", id)) &&
+      can(regex("^[A-Za-z0-9+=,.@_-]{1,64}$", member.role_name)) &&
+      length(member.external_id) >= 2 && length(member.external_id) <= 1224 &&
+      can(regex("^[A-Za-z0-9+=,.@:/_-]+$", member.external_id))
+    ])
+    error_message = "Each member needs a 12-digit ID, valid role name and nonempty STS external ID."
   }
 }
 variable "report_bucket_name" {

@@ -1,8 +1,7 @@
 data "aws_partition" "current" {}
 locals {
-  partition    = data.aws_partition.current.partition
-  oidc_arn     = var.existing_oidc_provider_arn != null ? var.existing_oidc_provider_arn : aws_iam_openid_connect_provider.github[0].arn
-  member_roles = [for id in var.member_account_ids : "arn:${local.partition}:iam::${id}:role/security/${var.audit_role_name}"]
+  partition = data.aws_partition.current.partition
+  oidc_arn  = var.existing_oidc_provider_arn != null ? var.existing_oidc_provider_arn : aws_iam_openid_connect_provider.github[0].arn
 }
 resource "aws_iam_openid_connect_provider" "github" {
   count          = var.existing_oidc_provider_arn == null ? 1 : 0
@@ -35,13 +34,17 @@ resource "aws_iam_role" "runner" {
   max_session_duration = 3600
 }
 data "aws_iam_policy_document" "runner" {
-  statement {
-    actions   = ["sts:AssumeRole"]
-    resources = local.member_roles
-    condition {
-      test     = "StringEquals"
-      variable = "sts:ExternalId"
-      values   = [var.external_id]
+  dynamic "statement" {
+    for_each = var.member_accounts
+    content {
+      sid       = "AssumeMember${statement.key}"
+      actions   = ["sts:AssumeRole"]
+      resources = ["arn:${local.partition}:iam::${statement.key}:role/security/${statement.value.role_name}"]
+      condition {
+        test     = "StringEquals"
+        variable = "sts:ExternalId"
+        values   = [statement.value.external_id]
+      }
     }
   }
   statement {

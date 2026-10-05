@@ -10,3 +10,7 @@ The original tracked files have been preserved under [examples/local-server](../
 6. Retain historical reports as audit evidence without presenting them as new scans. Disable the old scheduler/server if no longer needed. Review deletion and retention separately before purging any local data.
 
 The historical additions policy includes `securityhub:BatchImportFindings` despite older prose calling all permissions read-only. The enterprise policy removes that action. Historical broad muting, access-key provisioning, database repair commands and destructive teardown procedures are lab-only references and require fresh operational judgment.
+
+## Standalone repository cutover
+
+The canonical portfolio repository is `amahjoshdevsec/aws-security-assessment-platform`; the old fork retains the upgraded source for continuity. Git history, the original license and upstream attribution are preserved. Update Terraform `github_repository` to the exact standalone owner/repository before enabling scans there. Recreate environment protection and variables in the new repository, verify OIDC in the canary, and disable the old scheduled workflow before using the same state/report prefixes. Do not leave two repositories writing the same lifecycle state: GitHub workflow concurrency is scoped to one repository.

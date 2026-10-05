@@ -48,7 +48,7 @@ terraform -chdir=terraform/member-account apply member.tfplan
 terraform -chdir=terraform/member-account output audit_role_arn
 ```
 
-Use the same external ID in tooling, member trust and inventory. The member role path is `/security/`; keep inventory `role_name` consistent. The member trust names the exact tooling role, so tooling must exist before member apply. IAM propagation can delay the first scan. If the tooling role is deleted and recreated, reapply member trust policies because AWS binds role principals to unique principal IDs.
+For each account, use its matching role name and external ID in `member_accounts`, member trust and inventory. Different accounts may use different pairs; Terraform generates a separate AssumeRole policy statement for each pair, preventing external-ID cross-matching. The member role path is `/security/`; keep inventory `role_name` consistent. The member trust names the exact tooling role, so tooling must exist before member apply. IAM propagation can delay the first scan. If the tooling role is deleted and recreated, reapply member trust policies because AWS binds role principals to unique principal IDs.
 
 ## Policy maintenance
 
@@ -59,3 +59,15 @@ Use the same external ID in tooling, member trust and inventory. The member role
 The report bucket and KMS key use `prevent_destroy`; the bucket also has `force_destroy = false`. Decommission scanning and member trust first, then retain/archive evidence and state according to policy. Removing destruction guards or scheduling key deletion requires a separately reviewed change. A deleted key makes retained encrypted evidence unreadable.
 
 Do not move the legacy Terraform state into these roots: resource addresses and lifecycle differ. Follow [migration](migration.md), provision roles independently, verify new scans, then revoke the old IAM access keys. No infrastructure is deployed automatically by the validation workflow.
+
+## Generate the tooling member map from inventory
+
+Avoid hand-maintained copies of member role names and external IDs:
+
+```bash
+mkdir -p build
+python3 scripts/governance.py terraform-members > build/members.tfvars.json
+terraform -chdir=terraform/security-tooling plan -var-file=../../build/members.tfvars.json -out=tooling.tfplan
+```
+
+The generated map includes approved inventory entries even when `enabled` is false, so IAM can be provisioned before enabling scans. Review the inventory before generating it. Remove the manually entered `member_accounts` block from local `terraform.tfvars` when using this var-file to keep one source of truth. The member root is still applied separately per account, using that account's selected pair.

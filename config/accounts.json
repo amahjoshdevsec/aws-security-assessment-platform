@@ -6,7 +6,7 @@
       "owner": "cloud-platform",
       "environment": "production",
       "role_name": "ProwlerAudit",
-      "external_id": "replace-with-your-organization-scan-id",
+      "external_id": "replace-with-this-account-scan-id",
       "regions": [
         "us-east-1",
         "us-west-2"

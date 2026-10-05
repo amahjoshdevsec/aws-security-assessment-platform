@@ -1,4 +1,4 @@
 account_id = "111111111111"
 region = "us-east-1"
 tooling_role_arn = "arn:aws:iam::222222222222:role/security/ProwlerGitHubRunner"
-external_id = "replace-with-your-organization-scan-id"
+external_id = "replace-with-this-account-scan-id"

@@ -51,6 +51,12 @@ def matrix(accounts):
     return {'include': rows}
 
 
+def terraform_members(accounts):
+    """Provisioning scope includes approved disabled accounts for staged onboarding."""
+    return {'member_accounts': {a['id']: {'role_name': a['role_name'], 'external_id': a['external_id']}
+                                for a in accounts}}
+
+
 def exceptions(path, accounts, today=None):
     today = today or dt.datetime.now(dt.timezone.utc).date()
     entries = read_json(path)['exceptions']
@@ -88,13 +94,15 @@ def exceptions(path, accounts, today=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['validate', 'matrix', 'compile'])
+    parser.add_argument('command', choices=['validate', 'matrix', 'compile', 'terraform-members'])
     parser.add_argument('--output', type=Path, default=ROOT / 'build/mutelist.yaml')
     args = parser.parse_args()
     accounts = inventory()
     result = exceptions(ROOT / 'config/exceptions.json', accounts)
     if args.command == 'matrix':
         print(json.dumps(matrix(accounts), separators=(',', ':')))
+    elif args.command == 'terraform-members':
+        print(json.dumps(terraform_members(accounts), indent=2))
     elif args.command == 'compile':
         args.output.parent.mkdir(parents=True, exist_ok=True)
         # JSON is a YAML subset, avoiding a runtime YAML dependency.

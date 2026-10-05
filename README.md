@@ -1,8 +1,10 @@
 # Automated AWS Multi Account Security and Compliance Assessment Platform
 
-A reference implementation for scheduled, centrally governed AWS security assessments with Prowler, Terraform, and GitHub Actions. A dedicated security tooling account controls cross-account access and stores assessment evidence. Workload accounts expose narrowly trusted audit roles; GitHub authenticates with OIDC and temporary credentials.
+A reference implementation for scheduled, centrally governed AWS security assessments with Prowler, Terraform, and GitHub Actions. A dedicated security tooling account controls cross-account access and stores assessment evidence. Workload accounts expose narrowly trusted audit roles; GitHub authenticates with OIDC and temporary credentials. The host assumes each member role first, and only member audit credentials enter the scanner container.
 
 **Implementation status:** infrastructure and automation are provided for review and deployment. No AWS deployment or live organization scan is claimed. Example account IDs are disabled. This project supports commercial AWS partitions and an explicitly approved account/region inventory.
+
+Canonical repository: [amahjoshdevsec/aws-security-assessment-platform](https://github.com/amahjoshdevsec/aws-security-assessment-platform). See [provenance and attribution](docs/attribution.md) for the upstream walkthrough and retained license.
 
 ## Why this project
 
@@ -71,8 +73,8 @@ examples/local-server/      Preserved single-account Docker lab
 Install Python 3.12+, Terraform 1.7+, Docker, and AWS CLI v2. Python platform scripts use only the standard library. Provider initialization needs network access; subsequent validation does not require AWS credentials.
 
 ```bash
-git clone https://github.com/amahjoshdevsec/prowler-docker-walkthrough.git
-cd prowler-docker-walkthrough
+git clone https://github.com/amahjoshdevsec/aws-security-assessment-platform.git
+cd aws-security-assessment-platform
 make test
 make tf-init
 make tf-check
@@ -104,7 +106,7 @@ No AWS access-key secrets are required. The OIDC subject contains an environment
 
 ### 4. Approve scope and run a canary
 
-Replace example IDs and external IDs in [accounts.json](config/accounts.json), choose every in-scope region, assign owners, and enable one nonproduction account first. Tooling Terraform's member allowlist, member trust, and inventory must agree on account IDs, role names, paths and external ID. The external ID is an identifier, not a secret.
+Replace example IDs and external IDs in [accounts.json](config/accounts.json), choose every in-scope region, assign owners, and enable one nonproduction account first. Tooling Terraform’s `member_accounts` map, member trust, and inventory must agree on each account’s role name, path and external ID. Generate the map from inventory as documented in the deployment guide. The external ID is an identifier, not a secret.
 
 Merge reviewed configuration, then use Actions → Scheduled multi-account assessment → Run workflow on `main`. Confirm the complete manifest, raw reports, and state in S3 before expanding scope. The daily schedule is best-effort GitHub scheduling, not a guaranteed delivery SLA. Configure an external stale-evidence alert as described in the [operations guide](docs/operations.md).
 
@@ -156,6 +158,7 @@ Create `reports/` first if needed. A failed check is assessment data, not a fail
 - [Findings lifecycle and remediation](docs/findings-lifecycle.md)
 - [Compliance mapping and evidence](docs/compliance.md)
 - [Validation and CI](docs/validation.md)
+- [Two-account canary validation](docs/canary.md)
 - [Migration from the local walkthrough](docs/migration.md)
 
 Licensed under the existing [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use requires prior written authorization from The DevSec Blueprint LLC, as stated in the license.

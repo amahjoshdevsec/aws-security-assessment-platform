@@ -52,6 +52,13 @@ class PlatformTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             g.inventory(self.file({'accounts': [self.account, self.account]}))
 
+    def test_terraform_member_map_preserves_distinct_role_external_id_pairs(self):
+        other = dict(self.account, id='222222222222', role_name='AlternateAudit', external_id='different-external-id')
+        members = g.terraform_members([self.account, other])['member_accounts']
+        self.assertEqual(members['222222222222'], {'role_name': 'AlternateAudit', 'external_id': 'different-external-id'})
+        self.assertEqual(members[self.account['id']]['external_id'], self.account['external_id'])
+        self.assertEqual(len(members), 2)
+
     def test_duplicate_json_keys_rejected(self):
         p = self.root / 'bad.json'
         p.write_text('{"exceptions":[], "exceptions":[]}')
@@ -164,7 +171,8 @@ class PlatformTests(unittest.TestCase):
             command = scan.scan_command(self.account, 'us-east-1', 'image', self.root, self.root / 'mutelist', 'run-1')
         self.assertNotIn('SECRET-VALUE', command)
         self.assertIn('--scan-unused-services', command)
-        self.assertIn('arn:aws:iam::111111111111:role/security/ProwlerAudit', command)
+        self.assertNotIn('--role', command)
+        self.assertNotIn('--external-id', command)
         self.assertNotIn('--fixer', command)
 
     def test_additions_policy_has_no_write_actions(self):

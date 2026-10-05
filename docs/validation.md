@@ -20,3 +20,14 @@ For workflow syntax and expression validation, run `actionlint .github/workflows
 Local checks do not prove cloud deployment, IAM authorization, scanner completeness or successful uploads. In a nonproduction account, review and apply the plans, verify the OIDC/STS chain, inspect CloudTrail, perform a full scan, confirm error-free private evidence and state, and test one approved remediation. Exercise an intentionally denied API and denied S3 write to confirm the operational alerts and state preservation. Roll out in small account batches while comparing expected coverage and run duration.
 
 An `enabled: false` sample inventory is valid configuration but cannot run an assessment. This prevents an example account from being accidentally scanned. Active risk acceptances are checked against the current UTC date at both validation and execution time.
+
+## Cross-platform dependency locks
+
+Both enterprise roots record `darwin_arm64` and `linux_amd64` provider hashes. Regenerate signed hashes when changing the provider version:
+
+```bash
+terraform -chdir=terraform/security-tooling providers lock -platform=darwin_arm64 -platform=linux_amd64
+terraform -chdir=terraform/member-account providers lock -platform=darwin_arm64 -platform=linux_amd64
+```
+
+Keep CI initialization read-only so lock drift cannot be silently accepted. Action commits are pinned to verified Node 24 releases. Credential-boundary tests use distinct tooling and member sessions, reject wrong role/account/expiry, and verify the scanner process never inherits host OIDC or other tokens.
