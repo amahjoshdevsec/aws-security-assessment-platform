@@ -108,7 +108,7 @@ No AWS access-key secrets are required. The OIDC subject contains an environment
 
 Replace example IDs and external IDs in [accounts.json](config/accounts.json), choose every in-scope region, assign owners, and enable one nonproduction account first. Tooling Terraform’s `member_accounts` map, member trust, and inventory must agree on each account’s role name, path and external ID. Generate the map from inventory as documented in the deployment guide. The external ID is an identifier, not a secret.
 
-Merge reviewed configuration, then use Actions → Scheduled multi-account assessment → Run workflow on `main`. Confirm the complete manifest, raw reports, and state in S3 before expanding scope. The daily schedule is best-effort GitHub scheduling, not a guaranteed delivery SLA. Configure an external stale-evidence alert as described in the [operations guide](docs/operations.md).
+Merge reviewed configuration, enable the assessment workflow after environment setup, then use Actions → Scheduled multi-account assessment → Run workflow on `main`. Confirm the complete manifest, raw reports, and state in S3 before expanding scope. The daily schedule is best-effort GitHub scheduling, not a guaranteed delivery SLA. Configure an external stale-evidence alert as described in the [operations guide](docs/operations.md).
 
 ### 5. Review evidence and validate remediation
 

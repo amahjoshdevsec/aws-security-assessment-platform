@@ -6,6 +6,8 @@ Status: **not yet deployed or validated against live AWS**. Local tests and a gr
 
 Identify the dedicated tooling account and a separate sandbox workload account, provisioning profiles/SSO roles, report region, unique evidence bucket, protected GitHub repository/environment, state backends, and budget/cleanup owner. Do not use a production workload or grant the scanner provisioning access. Prepare and review a plan for each account before apply.
 
+The standalone assessment workflow remains disabled until the account inventory, protected environment, OIDC trust and report variables are configured. Enable it as part of the approved canary setup; the credential-free validation workflow stays active.
+
 ## Evidence checklist
 
 | Stage | Acceptance criterion | Evidence to record |
