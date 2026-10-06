@@ -1,17 +1,16 @@
 {
   "accounts": [
     {
-      "id": "111111111111",
-      "name": "workload-example",
-      "owner": "cloud-platform",
-      "environment": "production",
+      "id": "214745599312",
+      "name": "sandbox",
+      "owner": "amahjoshdevsec",
+      "environment": "sandbox",
       "role_name": "ProwlerAudit",
-      "external_id": "replace-with-this-account-scan-id",
+      "external_id": "5e0042bd081f6bc56355ddf0d316b804",
       "regions": [
-        "us-east-1",
-        "us-west-2"
+        "us-east-1"
       ],
-      "enabled": false
+      "enabled": true
     }
   ]
 }

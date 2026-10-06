@@ -19,7 +19,9 @@ class OrchestratorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'config').mkdir()
-            accounts = governance.inventory()
+            accounts = governance.inventory(
+                 Path(__file__).resolve().parent / "fixtures" / "accounts.json"
+            )
             accounts[0]['enabled'] = True
             for name, content in [('accounts.json', {'accounts': accounts}), ('exceptions.json', {'exceptions': []})]:
                 (root / 'config' / name).write_text(json.dumps(content))

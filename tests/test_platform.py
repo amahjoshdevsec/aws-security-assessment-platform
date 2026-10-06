@@ -20,7 +20,9 @@ class PlatformTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
-        self.accounts = g.inventory()
+        self.accounts = g.inventory(
+            Path(__file__).resolve().parent / "fixtures" / "accounts.json"
+        )
         self.account = self.accounts[0]
         self.scope = '111111111111/us-east-1'
         self.previous = {'schema_version': 1, 'scope': self.scope, 'findings': {}}

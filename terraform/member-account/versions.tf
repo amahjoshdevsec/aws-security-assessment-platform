@@ -15,15 +15,3 @@ provider "aws" {
     tags = { Project = "enterprise-prowler", ManagedBy = "Terraform" }
   }
 }
-variable "region" {
-  type    = string
-  default = "us-east-1"
-}
-variable "account_id" {
-  type        = string
-  description = "Account in which this root must be deployed."
-  validation {
-    condition     = can(regex("^[0-9]{12}$", var.account_id))
-    error_message = "Supply a 12-digit AWS account ID."
-  }
-}
