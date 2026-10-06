@@ -23,7 +23,7 @@ data "aws_iam_policy_document" "oidc" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:environment:${var.github_environment}"]
+      values   = [var.github_oidc_subject]
     }
   }
 }

@@ -3,8 +3,9 @@ terraform {
   backend "s3" {
     bucket       = "aj-cloudsentrics-tfstate-323843735194"
     encrypt      = true
-    key          = "security-tooling/terraform.tfstate"
+    key          = "prowler/tooling/terraform.tfstate"
     region       = "us-east-1"
     use_lockfile = true
+    profile      = "security-tooling"
   }
 }
