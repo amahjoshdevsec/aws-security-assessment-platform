@@ -53,3 +53,4 @@ variable "reader_role_arns" {
   default     = []
   description = "Existing same-account analyst roles granted S3 and KMS read access."
 }
+
