@@ -54,3 +54,8 @@ variable "reader_role_arns" {
   description = "Existing same-account analyst roles granted S3 and KMS read access."
 }
 
+variable "github_oidc_subject" {
+  description = "Exact GitHub OIDC subject allowed to assume the runner role."
+  type        = string
+}
+
