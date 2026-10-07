@@ -9,21 +9,74 @@ from pathlib import Path
 from governance import require, read_json
 
 
-def normalize(path, account, region, excluded_services=(), excluded_kms_resources=()):
-    with Path(path).open(newline='') as stream:
-        reader = csv.DictReader(stream, delimiter=';')
-        required = {'ACCOUNT_UID', 'CHECK_ID', 'RESOURCE_UID', 'REGION', 'STATUS', 'MUTED', 'SEVERITY', 'COMPLIANCE', 'SERVICE_NAME'}
-        require(required <= set(reader.fieldnames or []), 'Missing Prowler CSV columns')
+def normalize(
+    path,
+    account,
+    region,
+    excluded_services=(),
+    excluded_kms_resources=(),
+):
+    with Path(path).open(newline="") as stream:
+        reader = csv.DictReader(stream, delimiter=";")
+
+        required = {
+            "ACCOUNT_UID",
+            "CHECK_ID",
+            "RESOURCE_UID",
+            "REGION",
+            "STATUS",
+            "MUTED",
+            "SEVERITY",
+            "COMPLIANCE",
+            "SERVICE_NAME",
+        }
+        require(
+            required <= set(reader.fieldnames or []),
+            "Missing Prowler CSV columns",
+        )
+
         findings = []
         seen = set()
+
         for row in reader:
-            require(row['ACCOUNT_UID'] == account, 'Report contains an unexpected account')
-            # Global checks are retained but each partition tracks its own observations.
-            global_service = row['SERVICE_NAME'] in {'cloudfront', 'shield', 'fms', 'route53'}
-            require(row['REGION'] in (region, 'global') or (global_service and row['REGION'] == 'us-east-1'),
-                    'Report contains an unexpected region')
-            
-                
+            require(
+                row["ACCOUNT_UID"] == account,
+                "Report contains an unexpected account",
+            )
+
+            # Global checks are retained, but each scan partition tracks
+            # its own observations.
+            global_service = row["SERVICE_NAME"] in {
+                "cloudfront",
+                "shield",
+                "fms",
+                "route53",
+            }
+
+            # This specific account-wide discovery check can reference an
+            # index in another region. Retain its reported region and verify
+            # that the resource ARN matches that region and this account.
+            resource_explorer_observation = (
+                row["SERVICE_NAME"] == "resourceexplorer2"
+                and row["CHECK_ID"] == "resourceexplorer2_indexes_found"
+                and row["REGION"] not in ("", "global")
+                and row["RESOURCE_UID"].startswith(
+                    f"arn:aws:resource-explorer-2:"
+                    f"{row['REGION']}:{account}:index/"
+                )
+                and bool(row["RESOURCE_UID"].rsplit("/", 1)[-1])
+            )
+
+            require(
+                row["REGION"] in (region, "global")
+                or (
+                    global_service
+                    and row["REGION"] == "us-east-1"
+                )
+                or resource_explorer_observation,
+                "Report contains an unexpected region",
+            )
+
             if row["SERVICE_NAME"] in excluded_services:
                 continue
 
@@ -31,21 +84,70 @@ def normalize(path, account, region, excluded_services=(), excluded_kms_resource
                 row["SERVICE_NAME"] == "kms"
                 and row["RESOURCE_UID"] in excluded_kms_resources
             ):
-                continue 
-            
-            
-            require(row['STATUS'] in ('PASS', 'FAIL', 'MANUAL'), 'Unknown status or incomplete scan')
-            require(row['MUTED'].lower() in ('true', 'false'), 'Invalid muted value')
-            require(row['CHECK_ID'] and row['RESOURCE_UID'], 'Missing finding identity')
-            identity = [account, row['CHECK_ID'], row['REGION'], row['RESOURCE_UID']]
-            uid = hashlib.sha256(json.dumps(identity, separators=(',', ':')).encode()).hexdigest()
-            require(uid not in seen, 'Duplicate finding identity')
+                continue
+
+            require(
+                row["STATUS"] in ("PASS", "FAIL", "MANUAL"),
+                "Unknown status or incomplete scan",
+            )
+            require(
+                row["MUTED"].lower() in ("true", "false"),
+                "Invalid muted value",
+            )
+            require(
+                row["CHECK_ID"] and row["RESOURCE_UID"],
+                "Missing finding identity",
+            )
+
+            identity = [
+                account,
+                row["CHECK_ID"],
+                row["REGION"],
+                row["RESOURCE_UID"],
+            ]
+
+            # These checks can produce multiple findings for the same
+            # parent ARN. RESOURCE_NAME distinguishes the individual
+            # policies or attachments.
+            if (
+                row["CHECK_ID"].startswith("iam_inline_policy_")
+                or row["CHECK_ID"]
+                == "iam_policy_attached_only_to_group_or_roles"
+            ):
+                policy_resource = row.get("RESOURCE_NAME", "").strip()
+                require(
+                    policy_resource,
+                    "Missing IAM policy resource name",
+                )
+                identity.append(policy_resource)
+
+            # Status is deliberately excluded so FAIL -> PASS retains
+            # the same identity for remediation validation.
+            uid = hashlib.sha256(
+                json.dumps(
+                    identity,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
+
+            require(uid not in seen, "Duplicate finding identity")
             seen.add(uid)
-            findings.append({'id': uid, 'account_id': account, 'check_id': row['CHECK_ID'],
-                             'region': row['REGION'], 'resource': row['RESOURCE_UID'],
-                             'status': row['STATUS'], 'muted': row['MUTED'].lower() == 'true',
-                             'severity': row['SEVERITY'], 'compliance': row['COMPLIANCE']})
-    require(findings, 'Empty report is not a successful scan')
+
+            findings.append(
+                {
+                    "id": uid,
+                    "account_id": account,
+                    "check_id": row["CHECK_ID"],
+                    "region": row["REGION"],
+                    "resource": row["RESOURCE_UID"],
+                    "status": row["STATUS"],
+                    "muted": row["MUTED"].lower() == "true",
+                    "severity": row["SEVERITY"],
+                    "compliance": row["COMPLIANCE"],
+                }
+            )
+
+    require(findings, "Empty report is not a successful scan")
     return findings
 
 
