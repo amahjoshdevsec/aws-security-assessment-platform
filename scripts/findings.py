@@ -9,7 +9,7 @@ from pathlib import Path
 from governance import require, read_json
 
 
-def normalize(path, account, region):
+def normalize(path, account, region, excluded_services=(), excluded_kms_resources=()):
     with Path(path).open(newline='') as stream:
         reader = csv.DictReader(stream, delimiter=';')
         required = {'ACCOUNT_UID', 'CHECK_ID', 'RESOURCE_UID', 'REGION', 'STATUS', 'MUTED', 'SEVERITY', 'COMPLIANCE', 'SERVICE_NAME'}
@@ -22,6 +22,18 @@ def normalize(path, account, region):
             global_service = row['SERVICE_NAME'] in {'cloudfront', 'shield', 'fms', 'route53'}
             require(row['REGION'] in (region, 'global') or (global_service and row['REGION'] == 'us-east-1'),
                     'Report contains an unexpected region')
+            
+                
+            if row["SERVICE_NAME"] in excluded_services:
+                continue
+
+            if (
+                row["SERVICE_NAME"] == "kms"
+                and row["RESOURCE_UID"] in excluded_kms_resources
+            ):
+                continue 
+            
+            
             require(row['STATUS'] in ('PASS', 'FAIL', 'MANUAL'), 'Unknown status or incomplete scan')
             require(row['MUTED'].lower() in ('true', 'false'), 'Invalid muted value')
             require(row['CHECK_ID'] and row['RESOURCE_UID'], 'Missing finding identity')
