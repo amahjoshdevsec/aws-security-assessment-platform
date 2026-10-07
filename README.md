@@ -141,6 +141,12 @@ Create `reports/` first if needed. A failed check is assessment data, not a fail
 
 [Compliance mapping](docs/compliance.md) explains the distinction between automated control evidence and an organization's compliance conclusion. Preserve the framework version, scanner version, assessed scope, control owner, and manual evidence. A high pass percentage cannot establish certification or fill coverage gaps.
 
+
+## Deployment walkthrough
+
+Follow the [deployment and remediation walkthrough](docs/walkthrough.md)
+for commands, screenshots, and a controlled S3 remediation exercise.
+
 ## Operating boundaries
 
 - A scan container has a 40-minute limit inside a 55-minute job. Role chaining uses a 3,600-second session. Split large accounts by region and investigate timeouts; increasing the chained role lifetime beyond one hour will not solve them.
