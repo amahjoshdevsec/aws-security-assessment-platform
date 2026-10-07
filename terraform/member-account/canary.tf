@@ -29,3 +29,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "remediation_canar
 output "canary_bucket_name" {
   value = aws_s3_bucket.remediation_canary.id
 }
+
+resource "aws_s3_bucket_versioning" "remediation_canary" {
+  bucket = aws_s3_bucket.remediation_canary.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
