@@ -65,3 +65,5 @@ class ScopeExclusionTests(unittest.TestCase):
                 entry, scan.LAB_ACCOUNT, scan.LAB_REGION
             )
         )
+
+        
