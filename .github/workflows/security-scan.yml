@@ -1,7 +1,7 @@
 name: Scheduled multi-account assessment
 on:
-  schedule:
-    - cron: '23 3 * * *'
+  #schedule:
+    #- cron: '23 3 * * *'
   workflow_dispatch:
 permissions:
   contents: read
